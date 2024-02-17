@@ -1,0 +1,55 @@
+#!/bin/bash
+
+dir_ckpt="/home/jackhe/PyTorch-StudioGAN/ckpt" #ckpt path
+dir_config="/home/jackhe/PyTorch-StudioGAN/src/configs/CIFAR10" #config path
+
+# Check if the correct number of arguments are provided
+if [ "$#" -lt 3 ] || [ "$#" -gt 4 ]; then
+  echo "Usage: $0 [CUDA] [model] [number of image to save] [optional: version]"
+  exit 1
+fi
+
+CUDA="$1"
+model="$2"
+num="$3"
+# Check if version is specified
+if [ "$#" -eq 4 ]; then
+  ckpt_model="*$model-train*$4*"
+else
+  ckpt_model="*$model-train*"
+fi
+
+# Check if the directory exists
+if [ ! -d "$dir_ckpt" ]; then
+  echo "Error: Directory '$dir_ckpt' not found."
+  exit 1
+fi
+
+if [ ! -d "$dir_config" ]; then
+  echo "Error: Directory '$dir_config' not found."
+  exit 1
+fi
+
+# Find the first item containing the name in the given directory
+result_ckpt=$(find "$dir_ckpt" -iname "$ckpt_model" | head -n 1)
+result_config=$(find "$dir_config" -iname "*$model.yaml" | head -n 1)
+
+# Check if a result was found
+if [ -z "$result_ckpt" ]; then
+  echo "No model found containing the model name '$model' in '$dir_ckpt'"
+else
+  echo "ckpt: $result_ckpt"
+fi
+
+if [ -z "$result_config" ]; then
+  echo "No model found containing the model name '$model' in '$dir_config'"
+else
+  echo "config: $result_config"
+fi
+
+echo -e "Going to run:\n CUDA_VISIBLE_DEVICES=$CUDA python src/main.py -v -sf -sf_num $num -cfg $result_config -ckpt $result_ckpt -data DATA_PATH"
+echo -e "You have \e[31m 10 sec \e[0m to stop me !"
+sleep 10
+
+echo "start"
+CUDA_VISIBLE_DEVICES=$CUDA python /home/jackhe/PyTorch-StudioGAN/src/main.py -v -sf -sf_num $num -cfg $result_config -ckpt $result_ckpt -data DATA_PATH
