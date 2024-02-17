@@ -1,6 +1,6 @@
 *.pth
 *.log
-cifar-10-batches-py
+cifar-10-batches-py/
 logs/
 embeddings/
 DATA_PATH/
@@ -12,4 +12,4 @@ statistics/
 wandb/
 similar_pic/
 samples/
-ddpm_images
+ddpm_images/
