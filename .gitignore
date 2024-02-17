@@ -5,6 +5,8 @@ logs/
 embeddings/
 DATA_PATH/
 processed_cifar10/
+GAN_images/
+autoencoder/
 moments/
 statistics/
 wandb
