@@ -12,3 +12,4 @@ statistics/
 wandb/
 similar_pic/
 samples/
+ddpm_images
