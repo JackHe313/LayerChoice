@@ -1,0 +1,10 @@
+*.pth
+*.log
+cifar-10-batches-py
+logs/
+embeddings/
+DATA_PATH/
+processed_cifar10/
+moments/
+statistics/
+wandb
