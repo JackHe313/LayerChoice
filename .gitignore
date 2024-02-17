@@ -9,4 +9,5 @@ GAN_images/
 autoencoder/
 moments/
 statistics/
-wandb
+wandb/
+similar_pic/
