@@ -36,6 +36,8 @@ for model, scores in model_scores.items():
 plt.xlabel('Score Index')
 plt.ylabel('Score Value')
 plt.title('Model Scores')
-plt.legend()
+plt.legend(loc='upper left', bbox_to_anchor=(1.05, 1))
 plt.grid(True)
+plt.tight_layout()
+
 plt.savefig('model_scores_plot.png')

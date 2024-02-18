@@ -238,5 +238,5 @@ for model_ckpt in tqdm(ckpt_list):
     scores = plot_for_multiple_paths(layers, all_candidate_embeddings_train, all_candidate_embeddings_test)
     if args.save:
         with open("model_ct_scores.txt", "a") as f:
-            f.write(f"{generated_data_source}: {scores[1:]}\n")
+            f.write(f"{generated_data_source} {scores[1:]}\n")
     print("CT scores ", scores)
