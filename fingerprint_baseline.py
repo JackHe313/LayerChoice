@@ -20,18 +20,21 @@ def calculate_statistics(images):
     std_dev_image = np.std(images, axis=0)
     return mean_image, std_dev_image
 
-def calculate_distance(mean1, std1, mean2, std2):
-    # Simple Euclidean distance for demonstration; you might need a more sophisticated measure
+def calculate_distance(mean1, std1, fid1, mean2, std2, fid2):
     mean_distance = np.linalg.norm(mean1 - mean2)
     std_distance = np.linalg.norm(std1 - std2)
-    return mean_distance + std_distance  # Combine distances for simplicity
+    if fid1 and fid2:
+        fid_distance = np.linalg.norm(fid1 - fid2)
+    else:
+        fid_distance = 0
+    return mean_distance + std_distance + fid_distance  # Combine distances for simplicity
 
 def cosine_similarity(vec1, vec2):
     dot_product = np.dot(vec1.flatten(), vec2.flatten())
     norm_product = np.linalg.norm(vec1.flatten()) * np.linalg.norm(vec2.flatten())
     return dot_product / norm_product if norm_product else 0
 
-def combined_metric(cosine_sim, l2_dist, alpha=0.5):
+def combined_metric(cosine_sim, l2_dist, alpha):
     """
     Combine cosine similarity and L2 distance into a single metric.
     Alpha determines the weight of the cosine similarity relative to the L2 distance.
@@ -50,20 +53,22 @@ def compute_accuracy(generated_folders, modelArch, stats_file=None, alpha=0.1):
     correct_matches = 0
     for i, target_folder in enumerate(tqdm(generated_folders)):
         if stats_file:
-            target_mean, target_std = stats[target_folder]
+            target_mean, target_std, target_fid = stats[target_folder]
         else:
             target_images = load_and_preprocess_images(target_folder)
             target_mean, target_std = calculate_statistics(target_images)
+            target_fid = None
 
         distances = []
         for j, folder in enumerate(generated_folders):
             if i != j:  # Skip the target folder
                 if stats_file:
-                    gen_mean, gen_std = stats[folder]
+                    gen_mean, gen_std, gen_fid= stats[folder]
                 else:
                     generated_images = load_and_preprocess_images(folder)
                     gen_mean, gen_std = calculate_statistics(generated_images)
-                distance = calculate_distance(gen_mean, gen_std, target_mean, target_std)
+                    gen_fid = None
+                distance = calculate_distance(gen_mean, gen_std, gen_fid, target_mean, target_std, target_fid)
                 cos_sim = cosine_similarity(gen_mean, target_mean) + cosine_similarity(gen_std, target_std)
                 combined = combined_metric(cos_sim, distance, alpha)
                 distances.append((combined, modelArch[j]))
@@ -93,9 +98,25 @@ def save_statistics_to_file(generated_folders, file_path):
 
     print(f"Statistics saved to {file_path}")
 
+def load_fid_scores(fid_score_path):
+    fid_scores = {}
+    with open(fid_score_path, 'r') as file:
+        for line in file:
+            path, score = line.strip().split()
+            fid_scores[path] = float(score)
+    return fid_scores
+
 def load_statistics_from_file(file_path):
     with np.load(file_path, allow_pickle=True) as data:
         stats = data['stats'].item()  # Assume stats are stored in a dictionary format
+    fid_scores = load_fid_scores("/home/jackhe/LayerChoice/fid_scores/fid_score.txt")
+    for folder in stats.keys():
+        # Update the stats dictionary with the FID score if available
+        if folder in fid_scores:
+            stats[folder] = stats[folder] + (fid_scores[folder],)
+        else:
+            # Assign a default value or handle missing FID score
+            stats[folder] = stats[folder] + (None,)
     return stats
 
 if __name__ == "__main__":
@@ -158,7 +179,7 @@ if __name__ == "__main__":
                 generated_images = load_and_preprocess_images(folder)
                 gen_mean, gen_std = calculate_statistics(generated_images)
             
-            distance = calculate_distance(gen_mean, gen_std, target_mean, target_std)
+            distance = calculate_distance(gen_mean, gen_std, None, target_mean, target_std, None)
 
             gen_features = np.concatenate((gen_mean.flatten(), gen_std.flatten()))
             target_features = np.concatenate((target_mean.flatten(), target_std.flatten()))

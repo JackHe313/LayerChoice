@@ -115,6 +115,12 @@ def add_gaussian_noise_element(element, mean=0, sigma=25):
     element['img'] = np.array(processed_img)
     return element
 
+def none_process(element):
+    img = element['img']
+    class_label = element['label']
+    save_image(np.array(img), os.path.join(save_dir, 'original'), class_label)
+    return element
+
 # Parameters
 CROP_SIZE = 16
 DOWNSAMPLE_SIZE = 8
@@ -122,6 +128,7 @@ MAX_ANGLE = 30  # For a random rotation between -30 and +30 degrees
 NOISE_MEAN = 0
 NOISE_SIGMA = 25  # Adjust this for more/less noise
 
+'''
 cropped_dataset = dataset['train'].map(random_crop_and_zoom_element, fn_kwargs={'crop_size': CROP_SIZE})
 cropped_dataset.save_to_disk("./processed_cifar10/cropped_dataset")
 
@@ -133,8 +140,10 @@ edged_dataset.save_to_disk("./processed_cifar10/edged_dataset")
 
 rotated_dataset = dataset['train'].map(random_rotation_element, fn_kwargs={'max_angle': MAX_ANGLE})
 rotated_dataset.save_to_disk("./processed_cifar10/rotated_dataset")
-
+'''
 noisy_dataset = dataset['train'].map(add_gaussian_noise_element, fn_kwargs={'mean': NOISE_MEAN, 'sigma': NOISE_SIGMA})
 noisy_dataset.save_to_disk("./processed_cifar10/noisy_dataset")
 
+original_dataset = dataset['train'].map(none_process)
+original_dataset.save_to_disk("./processed_cifar10/original_dataset")
 

@@ -10,7 +10,7 @@ ddpm.to("cuda")
 # loop over number of images you want to generate
 number = input('How many generated image do you need?\n')
 
-output_dir = f"ddpm_images/pndm3/pndm_cifar10_32_{number}"
+output_dir = f"ddpm_images/pndm3/cifar10_32_{number}"
 os.makedirs(output_dir, exist_ok=True)
 
 for i in tqdm(range(int(number)), desc="Generating Images"):
