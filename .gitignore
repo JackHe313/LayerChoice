@@ -1,5 +1,6 @@
 *.pth
 *.log
+*_merge
 cifar-10-batches-py/
 logs/
 embeddings/
