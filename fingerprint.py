@@ -76,7 +76,7 @@ def find_closest_score_name(file_path, new_score, alpha=0.5):
             closest_score_name = model_name
     return closest_score_name
 
-def compute_accuracy(file_path, alpha=0.5):
+def compute_accuracy(file_path, alpha=1):
     """Compute the overall accuracy by setting each item as a target in turns."""
     scores = parse_data(file_path)
     correct_identifications = 0

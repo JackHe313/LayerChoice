@@ -26,7 +26,7 @@ args = parser.parse_args()
 default_paths = {
     "GAN500": r"/home/jackhe/LayerChoice/GAN_images/500",
     "GAN10000": r"/home/jackhe/LayerChoice/GAN_images/10000",
-    "DDPM": r"/home/jackhe/LayerChoice/ddpm_images/ddpm",
+    "DDPM": r"/home/jackhe/LayerChoice/ddpm_images/ddpm1",
     "rotated": r"/home/jackhe/LayerChoice/processed_cifar10/rotated",
     "noisy": r"/home/jackhe/LayerChoice/processed_cifar10/noisy",
     "downsampled": r"/home/jackhe/LayerChoice/processed_cifar10/downsampled",
@@ -66,7 +66,7 @@ os.makedirs(save_path, exist_ok=True)
 #model_ckpt = "thapasushil/vit-base-cifar10"
 
 #model_ckpt = "Zetatech/pvt-tiny-224"
-ckpt_list = ["google/vit-base-patch16-224-in21k"]
+ckpt_list = ["google/vit-base-patch16-224-in21k", "google/vit-large-patch16-224-in21k", "google/vit-huge-patch14-224-in21k"]
 for model_ckpt in tqdm(ckpt_list):
     model_name = model_ckpt.split('/')[-1]
     print(model_name)
@@ -176,7 +176,8 @@ for model_ckpt in tqdm(ckpt_list):
             T = embeddings_train_layer.astype('float')
 
         #convert to 64 embeddings
-            n_components=min(T.shape[0], T.shape[1],64)
+            print(T.shape)
+            n_components=min(T.shape[0],T.shape[1],64)
             pca = PCA(n_components)
             pca.fit(T)
             Pn_projected = pca.transform(Pn)
@@ -237,6 +238,6 @@ for model_ckpt in tqdm(ckpt_list):
             layers[layer_index].append(output)
     scores = plot_for_multiple_paths(layers, all_candidate_embeddings_train, all_candidate_embeddings_test)
     if args.save:
-        with open("model_ct_scores.txt", "a") as f:
+        with open("plot.txt", "a") as f:
             f.write(f"{generated_data_source} {scores[1:]}\n")
     print("CT scores ", scores)

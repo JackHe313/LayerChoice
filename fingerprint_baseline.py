@@ -27,7 +27,7 @@ def calculate_distance(mean1, std1, fid1, mean2, std2, fid2):
         fid_distance = np.linalg.norm(fid1 - fid2)
     else:
         fid_distance = 0
-    return mean_distance + std_distance + fid_distance  # Combine distances for simplicity
+    return fid_distance  # Combine distances for simplicity
 
 def cosine_similarity(vec1, vec2):
     dot_product = np.dot(vec1.flatten(), vec2.flatten())
@@ -45,7 +45,7 @@ def combined_metric(cosine_sim, l2_dist, alpha):
     # Combine the two metrics
     return alpha * cosine_sim + (1 - alpha) * l2_similarity
 
-def compute_accuracy(generated_folders, modelArch, stats_file=None, alpha=0.1):
+def compute_accuracy(generated_folders, modelArch, stats_file=None, alpha=0):
     stats = {}
     if stats_file:
         stats = load_statistics_from_file(stats_file)

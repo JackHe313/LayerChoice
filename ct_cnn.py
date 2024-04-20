@@ -15,17 +15,17 @@ from tqdm.auto import tqdm
 from collections import OrderedDict
 import torchvision.transforms as T
 import timm
-import convolution_autoencoder_pyramid_reconstruction as cpr
-import convolution_autoencoder_isotropic_reconstruction as cir
-import convolution_autoencoder_pyramid_classification as cpc
-import convolution_autoencoder_pyramid_classification_moreiso as cpcm
-import convolution_autoencoder_pyramid_classification_noiso as cpcn
-import convolution_autoencoder_isotropic_classification as cic
+# import convolution_autoencoder_pyramid_reconstruction as cpr
+# import convolution_autoencoder_isotropic_reconstruction as cir
+# import convolution_autoencoder_pyramid_classification as cpc
+# import convolution_autoencoder_pyramid_classification_moreiso as cpcm
+# import convolution_autoencoder_pyramid_classification_noiso as cpcn
+# import convolution_autoencoder_isotropic_classification as cic
 
 dataset = load_dataset("cifar10")
 
-#model_name = "Inception_V3"
-model_name = "isotropic_classification"
+model_name = "Inception_V3"
+#model_name = "isotropic_classification"
 generated_data_source = "GAN500"
 for generated_data_source in ["GAN500", "GAN10000", "DDPM500"]:
     if generated_data_source == "GAN500":
@@ -59,24 +59,25 @@ for generated_data_source in ["GAN500", "GAN10000", "DDPM500"]:
         def forward(self, x):
             self.outputs = []  # Clear the output list
             return self.model(x)
-    '''
+
     model = HookedModel(
         timm.create_model(
-            #'inception_v3',
-            'vgg16',
+            'inception_v3',
+            #'vgg16',
             pretrained=True,
             num_classes=0,  # remove classifier nn.Linear
         ),
         
-        #layer_names=["Conv2d_1a_3x3", "Conv2d_2a_3x3", "Conv2d_2b_3x3" , "Pool1", "Conv2d_3b_1x1", "Conv2d_4a_3x3", "Pool2", "Mixed_5b", "Mixed_5b.branch_pool" "Mixed_5c", "Mixed_5c.branch_pool", "Mixed_5d", "Mixed_5d.branch_pool", "Mixed_6a", "Mixed_6b", "Mixed_6b.branch_pool", "Mixed_6c", "Mixed_6c.branch_pool", "Mixed_6d", "Mixed_6d.branch_pool", "Mixed_6e", "Mixed_6e.branch_pool", "Mixed_7a", "Mixed_7b", "Mixed_7b.branch_pool", "Mixed_7c", "Mixed_7c.branch_pool", "global_pool"]
-        layer_names = ["features", "features.0", "features.5", "features.10", "features.15", "features.20", "features.25", "features.30", "pre_logits", "head", "head.global_pool", "head.fc"]
+        layer_names=["Conv2d_1a_3x3", "Conv2d_2a_3x3", "Conv2d_2b_3x3" , "Pool1", "Conv2d_3b_1x1", "Conv2d_4a_3x3", "Pool2", "Mixed_5b", "Mixed_5b.branch_pool" "Mixed_5c", "Mixed_5c.branch_pool", "Mixed_5d", "Mixed_5d.branch_pool", "Mixed_6a", "Mixed_6b", "Mixed_6b.branch_pool", "Mixed_6c", "Mixed_6c.branch_pool", "Mixed_6d", "Mixed_6d.branch_pool", "Mixed_6e", "Mixed_6e.branch_pool", "Mixed_7a", "Mixed_7b", "Mixed_7b.branch_pool", "Mixed_7c", "Mixed_7c.branch_pool", "global_pool"]
+        #layer_names = ["features", "features.0", "features.5", "features.10", "features.15", "features.20", "features.25", "features.30", "pre_logits", "head", "head.global_pool", "head.fc"]
     )
-    '''
 
+    '''
     model = HookedModel(
         model = cic.ClassificationModel(10),
         layer_names = []
     )
+    
 
     if os.path.isfile(f"autoencoders/{model_name}/autoencoder_model_200.pth"):
         checkpoint = torch.load(f"autoencoders/{model_name}/autoencoder_model_200.pth")
@@ -85,7 +86,7 @@ for generated_data_source in ["GAN500", "GAN10000", "DDPM500"]:
             new_state_dict[new_key] = checkpoint['model_state_dict'][old_key]
         model.model.load_state_dict(new_state_dict)
         print(f"autoencoders/{model_name}/autoencoder_model_200.pth loaded")
-
+    '''
     #for name, layer in model.named_modules():
     #    print(name)
     model = model.eval()
@@ -103,6 +104,8 @@ for generated_data_source in ["GAN500", "GAN10000", "DDPM500"]:
 
     # get model specific transforms (normalization, resize)
     transform = T.Compose([
+        T.Resize(299),  
+        T.CenterCrop(299),
         T.ToTensor(),
         T.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
     ])

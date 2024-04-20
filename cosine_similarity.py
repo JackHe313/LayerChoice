@@ -12,7 +12,7 @@ import os
 #dataset = load_from_disk("processed_cifar10/noisy_dataset")
 #dataset = load_from_disk("processed_cifar10/rotated_dataset")
 
-dataset = load_dataset("cifar10")
+dataset = load_dataset("cifar10")['train']
 model_ckpt = "google/vit-base-patch16-224-in21k"
 #model_ckpt = "google/vit-large-patch16-224-in21k"
 #model_ckpt = "google/vit-huge-patch14-224-in21k"
@@ -21,12 +21,12 @@ model_ckpt = "google/vit-base-patch16-224-in21k"
 extractor = AutoFeatureExtractor.from_pretrained(model_ckpt)
 model = AutoModel.from_pretrained(model_ckpt)
 
-# labels = dataset["label"]
-# label2id, id2label = dict(), dict()
+labels = dataset["label"]
+label2id, id2label = dict(), dict()
 
-# for i, label in enumerate(labels):
-#     label2id[label] = i
-#     id2label[i] = label
+for i, label in enumerate(labels):
+    label2id[label] = i
+    id2label[i] = label
 
 import torchvision.transforms as T
 
