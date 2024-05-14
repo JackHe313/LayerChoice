@@ -7,24 +7,27 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import torch
 from tqdm.auto import tqdm
+import argparse
 import os
 
 #dataset = load_from_disk("processed_cifar10/noisy_dataset")
-dataset = load_from_disk("processed_cifar10/rotated_dataset")
-#model_ckpt = "google/vit-base-patch16-224-in21k"
-model_ckpt = "google/vit-large-patch16-224-in21k"
+#dataset = load_from_disk("processed_cifar10/rotated_dataset")
+
+dataset = load_dataset("cifar10")['train']
+model_ckpt = "google/vit-base-patch16-224-in21k"
+#model_ckpt = "google/vit-large-patch16-224-in21k"
 #model_ckpt = "google/vit-huge-patch14-224-in21k"
 #model_ckpt = "facebook/dino-vitb16"
 #model_ckpt = "thapasushil/vit-base-cifar10"
 extractor = AutoFeatureExtractor.from_pretrained(model_ckpt)
 model = AutoModel.from_pretrained(model_ckpt)
 
-labels = dataset["label"]
-label2id, id2label = dict(), dict()
+# labels = dataset["label"]
+# label2id, id2label = dict(), dict()
 
-for i, label in enumerate(labels):
-    label2id[label] = i
-    id2label[i] = label
+# for i, label in enumerate(labels):
+#     label2id[label] = i
+#     id2label[i] = label
 
 import torchvision.transforms as T
 
@@ -57,23 +60,6 @@ def extract_embeddings(model: torch.nn.Module):
 
     return pp
 
-# Here, we map embedding extraction utility on our subset of candidate images.
-batch_size = 24
-device = "cuda" if torch.cuda.is_available() else "cpu"
-extract_fn = extract_embeddings(model.to(device))
-candidate_subset_emb = dataset.map(extract_fn, batched=True, batch_size=24)
-candidate_ids = []
-for id in tqdm(range(len(candidate_subset_emb))):
-    label = candidate_subset_emb[id]["label"]
-
-    # Create a unique indentifier.
-    entry = str(id) + "_" + str(label)
-
-    candidate_ids.append(entry)
-    
-num_layers = len([col for col in candidate_subset_emb.column_names if "embeddings_" in col])
-all_candidate_embeddings = {f"embeddings_{i}": candidate_subset_emb[f"embeddings_{i}"] for i in range(num_layers)}
-all_candidate_embeddings = {key: torch.from_numpy(np.array(val)) for key, val in all_candidate_embeddings.items()}
 
 def compute_scores(emb_one, emb_two):
     """Computes cosine similarity between two vectors."""
@@ -105,6 +91,8 @@ def fetch_similar(image, top_k=5):
     top_scores = []
     average_scores = []
     average_same_label_scores = []  # This list will store the average score for same label images for each layer
+    copied_image_scores = [0]
+    copiedImgId = None
     for layer_num in tqdm(range(len(query_embeddings))):
         sim_scores = compute_scores(all_candidate_embeddings[f"embeddings_{layer_num}"], query_embeddings[layer_num])
         similarity_mapping = dict(zip(candidate_ids, sim_scores))
@@ -113,9 +101,9 @@ def fetch_similar(image, top_k=5):
         average_scores.append(average_score)
 
         # Calculate average score for images with the same label
-        same_label_scores = [score for id_score, score in similarity_mapping.items() if int(id_score.split("_")[-1]) == int(test_label)]
-        average_same_label_score = np.mean(same_label_scores) if same_label_scores else 0
-        average_same_label_scores.append(average_same_label_score)
+        # same_label_scores = [score for id_score, score in similarity_mapping.items() if int(id_score.split("_")[-1]) == int(test_label)]
+        # average_same_label_score = np.mean(same_label_scores) if same_label_scores else 0
+        # average_same_label_scores.append(average_same_label_score)
 
 
         # Sort the mapping dictionary and return `top_k` candidates.
@@ -123,29 +111,25 @@ def fetch_similar(image, top_k=5):
             sorted(similarity_mapping.items(), key=lambda x: x[1], reverse=True)
         )
         id_entries = list(similarity_mapping_sorted.keys())[:top_k]
+        scores = list(similarity_mapping_sorted.values())[:top_k]
 
         ids = list(map(lambda x: int(x.split("_")[0]), id_entries))
         labels = list(map(lambda x: int(x.split("_")[-1]), id_entries))
-        layer_similarities.append((ids, labels))
+
+        layer_similarities.append((ids, labels, scores))
         top_scores.append(similarity_mapping_sorted[id_entries[0]])
 
-    return layer_similarities, top_scores, average_scores, average_same_label_scores
+        if layer_num == 1:
+            copiedImgId = id_entries[0]
+            copied_image_scores.append(similarity_mapping_sorted[copiedImgId])
+        elif layer_num > 1:
+            copied_image_scores.append(similarity_mapping_sorted[copiedImgId])
 
-print(all_candidate_embeddings)
-#target = r"/home/jackhe/LayerChoice/GAN_images/500/1/3.png"
-target = r"/home/jackhe/LayerChoice/ddpm_images/ddpm_image/ddpm_generated_image_0.png"
-test_sample = Image.open(target)
-test_label = '1'
 
-layer_similarities, top_scores, average_scores, average_same_label_scores = fetch_similar(test_sample)
-path = f"/home/jackhe/LayerChoice/similar_pic"
-save_path = os.path.join(path, "DDPM0_noisy_vitlarge")
+    return layer_similarities, top_scores, average_scores, average_same_label_scores, copied_image_scores, copiedImgId.split("_")[0]
 
-isExist = os.path.exists(save_path)
-if not isExist:
-    os.mkdir(save_path)
 
-def plot_images(images, labels, layer_num, save_path):
+def plot_images(images, labels, layer_num, save_path, scores, ids, copiedImgId, copied_image_scores):
     if not isinstance(labels, list):
         labels = labels.tolist()
 
@@ -155,10 +139,12 @@ def plot_images(images, labels, layer_num, save_path):
         label_id = int(labels[i])
         sub_ax = plt.subplot(int(len(images) // columns) + 1, columns, i + 1)
         if i == 0:
-            sub_ax.set_title("Query Image\n" + "Label: {}".format(id2label[label_id]))
+            sub_ax.set_title(
+                "Query Image\n" + "CopiedId: {}".format(copiedImgId) + "\nCopiedScore: {:.5f}".format(copied_image_scores[layer_num])
+            ) 
         else:
             sub_ax.set_title(
-                "Similar Image # " + str(i) + "\nLabel: {}".format(id2label[label_id])
+                "Similar Image # " + str(i) + "\nLabel: {}".format(label_id) + " Id: {}".format(ids[i-1]) + "\nScore: {:.5f}".format(scores[i - 1])
             )
         plt.imshow(np.array(image).astype("int"))
         plt.axis("off")
@@ -166,7 +152,81 @@ def plot_images(images, labels, layer_num, save_path):
     plt.savefig(f'{save_path}/layer_{layer_num}.png')
     plt.close()
 
-for layer_num, (sim_ids, sim_labels) in enumerate(layer_similarities):
+
+
+
+
+
+
+
+
+parser = argparse.ArgumentParser(description='Process target paths for generated data.')
+parser.add_argument('--target', type=str)
+parser.add_argument('--save_path','-c', type=str, help='Custom path for the data. If provided, it overrides the default path.')
+args = parser.parse_args()
+
+save_path = args.save_path
+print(f"save_path: {save_path}")
+
+
+target = args.target
+test_sample = Image.open(target)
+test_label = '1'
+print(f"target: {target}")
+
+
+
+
+# Here, we map embedding extraction utility on our subset of candidate images.
+batch_size = 24
+device = "cuda" if torch.cuda.is_available() else "cpu"
+extract_fn = extract_embeddings(model.to(device))
+candidate_subset_emb = dataset.map(extract_fn, batched=True, batch_size=24)
+
+
+candidate_ids = []
+
+import pickle
+
+if os.path.isfile("./candidate_ids.pkl"):
+    with open("./candidate_ids.pkl", "rb") as f:
+        candidate_ids = pickle.load(f)
+        print("candidate_ids loaded")
+else:
+    print("Calculating candidate_ids")
+    for id in tqdm(range(len(candidate_subset_emb))):
+        label = candidate_subset_emb[id]["label"]
+
+        # Create a unique indentifier.
+        entry = str(id) + "_" + str(label)
+
+        candidate_ids.append(entry)
+
+        with open("./candidate_ids.pkl", "wb") as f:
+            pickle.dump(candidate_ids, f)
+    
+num_layers = len([col for col in candidate_subset_emb.column_names if "embeddings_" in col])
+all_candidate_embeddings = {f"embeddings_{i}": candidate_subset_emb[f"embeddings_{i}"] for i in range(num_layers)}
+all_candidate_embeddings = {key: torch.from_numpy(np.array(val)) for key, val in all_candidate_embeddings.items()}
+
+# print(all_candidate_embeddings["embeddings_0"].shape)
+
+
+
+layer_similarities, top_scores, average_scores, average_same_label_scores, copied_image_scores, copiedImgId = fetch_similar(test_sample)
+
+
+# for i in range(len(layer_similarities)):
+#     print(layer_similarities[i][1])
+
+
+isExist = os.path.exists(save_path)
+if not isExist:
+    os.mkdir(save_path)
+
+
+
+for layer_num, (sim_ids, sim_labels, sim_scores) in enumerate(layer_similarities):
     images = []
     labels = []
     images.append(test_sample)
@@ -176,7 +236,41 @@ for layer_num, (sim_ids, sim_labels) in enumerate(layer_similarities):
         image = Image.fromarray(image_array)
         images.append(image)
         labels.append(label)
-    plot_images(images, labels, layer_num, save_path)
+    plot_images(images, labels, layer_num, save_path, sim_scores, sim_ids, copiedImgId, copied_image_scores)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 '''
 isExist = os.path.exists(image_path)
@@ -202,32 +296,37 @@ final_img = Image.fromarray(np.concatenate([np.array(img) for img in images], ax
 # Save the final image
 final_img.save(f'{save_path}/all_layers.png')
 
-# Plot the graph
+# # Plot the graph
 
-# Set up the figure and the first axis
-fig, ax1 = plt.subplots(figsize=(10, 5))
+# # Set up the figure and the first axis
+# fig, ax1 = plt.subplots(figsize=(10, 5))
 
-ax1.plot(list(range(len(top_scores))), top_scores, marker='o', color='blue', label='top_score')
-ax1.plot(list(range(len(average_scores))), average_scores, marker='s', color='orange', label='mean_score')
-ax1.plot(list(range(len(average_same_label_scores))), average_same_label_scores, marker='s', color='red', label='mean_score_same_label')
+# ax1.plot(list(range(len(top_scores))), top_scores, marker='o', color='blue', label='top_score')
+# ax1.plot(list(range(len(average_scores))), average_scores, marker='s', color='orange', label='mean_score')
+# ax1.plot(list(range(len(average_same_label_scores))), average_same_label_scores, marker='s', color='red', label='mean_score_same_label')
 
-ax1.set_xlabel('Layer Number')
-ax1.set_ylabel('Score', color='black')
-ax1.tick_params('y', colors='black')
+# ax1.set_xlabel('Layer Number')
+# ax1.set_ylabel('Score', color='black')
+# ax1.tick_params('y', colors='black')
 
-# Create a second axis
-ax2 = ax1.twinx()
-ax2.plot(list(range(len(average_scores))),  [a / b for a, b in zip(top_scores, average_scores)], marker='x', color='green', label='ratio')
-ax2.plot(list(range(len(average_same_label_scores))),  [a / b for a, b in zip(top_scores, average_same_label_scores)], marker='x', color='purple', label='ratio_same_label')
+# # Create a second axis
+# ax2 = ax1.twinx()
+# ax2.plot(list(range(len(average_scores))),  [a / b for a, b in zip(top_scores, average_scores)], marker='x', color='green', label='ratio')
+# ax2.plot(list(range(len(average_same_label_scores))),  [a / b for a, b in zip(top_scores, average_same_label_scores)], marker='x', color='purple', label='ratio_same_label')
 
-ax2.set_ylabel('Ratio', color='green')
-ax2.tick_params('y', colors='black')
+# ax2.set_ylabel('Ratio', color='green')
+# ax2.tick_params('y', colors='black')
 
-ax1.legend()
-ax2.legend()
+# ax1.legend()
+# ax2.legend()
 
-plt.title('Change in Top Similarity Score with Layer Number')
-plt.grid(True)
-plt.show()
+# plt.title('Change in Top Similarity Score with Layer Number')
+# plt.grid(True)
+# plt.show()
 
-fig.savefig(f'{save_path}/scores.png')
+# fig.savefig(f'{save_path}/scores.png')
+
+
+
+
+print(f"copied_image_scores: {copied_image_scores}")

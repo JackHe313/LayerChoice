@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import numpy as np
 
 # Function to parse the data from the file
 def parse_data(file_path):
@@ -25,14 +26,10 @@ def assign_color(model_name, color_map):
 # Path to your file
 file_path = './model_ct_scores.txt'  
 
-
-
-
-
-
 # Parsing the file contents
 model_scores = parse_data(file_path)
 
+# Rearrange the model_scores into a 2D numpy array
 model_names = list(model_scores.keys())
 scores = list(model_scores.values())
 
@@ -49,37 +46,41 @@ zipped = zip(training_sizes, scores)
 zipped = sorted(zipped, key=lambda x: x[0])
 training_sizes, scores = zip(*zipped)
 
-# Plotting
+    
+num_models = len(training_sizes)
+num_scores = len(scores[0])
+score_matrix = np.zeros((num_models, num_scores))
+for i, score in enumerate(scores):
+    score_matrix[i, :] = score
+
+
+# Ranking
+rankings = (-score_matrix).argsort(axis=0,).argsort(axis=0) + 1
+average_rankings = rankings.mean(axis=1)
+print(f"Average Rankings: {average_rankings}")
+print(f"Training Sizes: {training_sizes}")
+
+
+
+
+
+# Plotting the Average Ranking w.r.t. the training set size
 plt.figure(figsize=(12, 6))
-color_map = {}
-for i in range(len(training_sizes)):
-    model = f"{training_sizes[i]} Images"
-    color = assign_color(model, color_map)
-    plt.plot(scores[i], label=model, color=color)
-
-
-
-
-
-
-# # Plotting
-# plt.figure(figsize=(12, 6))
-# color_map = {}
-# for model, scores in model_scores.items():
-#     if "full" in model:
-#         model = "50000 Images"
-#     else:
-#         size = model.split('_')[3]
-#         model = f"{size} Images"
-
-#     color = assign_color(model, color_map)
-#     plt.plot(scores, label=model, color=color)
-
-plt.xlabel('Score Index')
-plt.ylabel('Score Value')
-plt.title('Model Scores')
-plt.legend(loc='upper left', bbox_to_anchor=(1.05, 1))
+plt.plot(training_sizes, average_rankings, marker='o')
+plt.xlabel('Training Set Size')
+plt.ylabel('Average Ranking')
+plt.title('Average Ranking vs Training Set Size')
 plt.grid(True)
 plt.tight_layout()
 
-plt.savefig('ct_plots_DDIM.png')
+# Loop through the data points to annotate each point
+for i, (x, y) in enumerate(zip(training_sizes, average_rankings)):
+    plt.annotate(f'({x}, {y:.1f})',  # text to display
+                 (x, y),        # the poi·nt to annotate
+                 textcoords="offset points",  # how to position the text
+                 xytext=(0,10),  # distance from text to points (x,y)
+                 ha='center')    # horizontal alignment can be left, right or center
+
+
+
+plt.savefig('ct_ranking_plot_DDIM.png')

@@ -44,7 +44,7 @@ else:
     print(target_paths)
 
 generated_data_source = args.generated_data_source
-path = f"/home/jackhe/LayerChoice/"
+path = f"/home/jz2003/Lab/LayerChoice"
 save_path = os.path.join(path, "CT_score",f"{generated_data_source}")
 os.makedirs(save_path, exist_ok=True)
 
@@ -214,7 +214,6 @@ for model_ckpt in tqdm(ckpt_list):
 
         return scores
 
-    print(all_candidate_embeddings_train)
     
     query_embeddings = []
     for dir in os.listdir(target_paths):
@@ -235,6 +234,12 @@ for model_ckpt in tqdm(ckpt_list):
     for result in query_embeddings:
         for layer_index, output in enumerate(result):
             layers[layer_index].append(output)
+
+
+
+
+
+
     scores = plot_for_multiple_paths(layers, all_candidate_embeddings_train, all_candidate_embeddings_test)
     if args.save:
         with open("model_ct_scores.txt", "a") as f:
