@@ -63,10 +63,11 @@ os.makedirs(save_path, exist_ok=True)
 #model_ckpt = "google/vit-large-patch16-224-in21k"
 #model_ckpt = "google/vit-huge-patch14-224-in21k"
 #model_ckpt = "facebook/dino-vitb16"
+#model_ckpt = "facebook/dino-vits16"
 #model_ckpt = "thapasushil/vit-base-cifar10"
 
 #model_ckpt = "Zetatech/pvt-tiny-224"
-ckpt_list = ["google/vit-base-patch16-224-in21k", "google/vit-large-patch16-224-in21k", "google/vit-huge-patch14-224-in21k"]
+ckpt_list = ["google/vit-base-patch16-224-in21k"]
 for model_ckpt in tqdm(ckpt_list):
     model_name = model_ckpt.split('/')[-1]
     print(model_name)
@@ -210,6 +211,9 @@ for model_ckpt in tqdm(ckpt_list):
         plt.xlabel("layers")
         plt.ylabel("CT scores")
         plt.title(f"CT vs layer with encoder {model_name}")
+
+        plt.yticks([-10, 0, 10, 20, 30, 40])
+
         plt.savefig(f'{save_path}/ct_v_layer_{model_name}.png')
         plt.close()  # Close the current figure
 
