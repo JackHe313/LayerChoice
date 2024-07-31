@@ -4,7 +4,7 @@
 samples_dir="ddpm_images"
 
 # Directory to store the FID scores
-output_dir="fid_scores"
+output_dir="fid_scores_time"
 mkdir -p "$output_dir"
 
 # Iterate over each directory in the samples directory

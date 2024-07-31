@@ -30,7 +30,9 @@ default_paths = {
     "rotated": r"/home/jackhe/LayerChoice/processed_cifar10/rotated",
     "noisy": r"/home/jackhe/LayerChoice/processed_cifar10/noisy",
     "downsampled": r"/home/jackhe/LayerChoice/processed_cifar10/downsampled",
-    "segmented_realworld": r"/home/jackhe/LayerChoice/processed_cifar10/segmented_realworld"
+    "segmented_realworld": r"/home/jackhe/LayerChoice/processed_cifar10/segmented_realworld",
+    "segmented_noisy": r"/home/jackhe/LayerChoice/processed_cifar10/segmented_noisy",
+    "shuffled": r"/home/jackhe/LayerChoice/processed_cifar10/shuffled"
 }
 
 if args.custom_path:
@@ -51,6 +53,8 @@ os.makedirs(save_path, exist_ok=True)
 #model_ckpt = "microsoft/swin-tiny-patch4-window7-224"
 #model_ckpt = "microsoft/swin-base-patch4-window7-224-in22k"
 #model_ckpt = "microsoft/swin-large-patch4-window7-224-in22k"
+
+#model_ckpt = "microsoft/resnet-18"
 #model_ckpt = "microsoft/resnet-50"
 
 #model_ckpt = "facebook/regnet-y-040"
@@ -67,6 +71,11 @@ os.makedirs(save_path, exist_ok=True)
 #model_ckpt = "thapasushil/vit-base-cifar10"
 
 #model_ckpt = "Zetatech/pvt-tiny-224"
+
+#model_ckpt = "facebook/deit-small-patch16-224"
+#model_ckpt = "facebook/deit-base-patch16-224"
+#model_ckpt = "facebook/deit-tiny-patch16-224"
+
 ckpt_list = ["google/vit-base-patch16-224-in21k"]
 for model_ckpt in tqdm(ckpt_list):
     model_name = model_ckpt.split('/')[-1]
@@ -117,7 +126,7 @@ for model_ckpt in tqdm(ckpt_list):
 
     # Here, we map embedding extraction utility on our subset of candidate images.
     batch_size = 24
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = "cuda:4" if torch.cuda.is_available() else "cpu"
     extract_fn = extract_embeddings(model.to(device))
 
     # Check if the file exists before loading
@@ -207,14 +216,23 @@ for model_ckpt in tqdm(ckpt_list):
             scores.append(ct)
 
 
-        plt.plot(layer_num, scores, marker='o')
-        plt.xlabel("layers")
-        plt.ylabel("CT scores")
-        plt.title(f"CT vs layer with encoder {model_name}")
+        # plt.plot(layer_num, scores, marker='o')
+        # plt.xlabel("layers")
+        # plt.ylabel("CT scores")
+        # plt.title(f"CT vs layer with encoder {model_name}")
 
-        plt.yticks([-10, 0, 10, 20, 30, 40])
+        # plt.savefig(f'{save_path}/ct_v_layer_{model_name}.png')
+        # plt.close()  # Close the current figure
 
-        plt.savefig(f'{save_path}/ct_v_layer_{model_name}.png')
+        plt.plot(layer_num, scores, marker='o', linestyle='-')
+        plt.xlabel("Layers", fontsize=14)
+        plt.ylabel("CT Scores", fontsize=14)
+        plt.title(f"CT vs Layer with Encoder {model_name}", fontsize=16)
+        plt.grid(True)
+        
+        # Save plot as SVG
+        plt.tight_layout()
+        plt.savefig(f'{save_path}/ct_v_layer_{model_name}.svg', format='svg')
         plt.close()  # Close the current figure
 
         return scores

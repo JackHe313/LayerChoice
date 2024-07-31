@@ -1,0 +1,4 @@
+ddpm_images/ddim1: FID:  65.70354922564917
+ddpm_images/ddim2: FID:  66.13262953206345
+ddpm_images/ddim3: FID:  66.89762518323016
+ddpm_images/ddpm1: FID:  66.89530819606705

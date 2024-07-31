@@ -45,13 +45,19 @@ def combined_metric(cosine_sim, l2_dist, alpha):
     # Combine the two metrics
     return alpha * cosine_sim + (1 - alpha) * l2_similarity
 
-def compute_accuracy(generated_folders, modelArch, stats_file=None, alpha=0):
+def getArch(folder):
+    name = folder.split('/')[5]
+    if len(name) == 5:
+        return name[:4]
+    return name.split('-')[1]
+
+def compute_accuracy(train_folders, test_folders, stats_file=None, alpha=0.5):
     stats = {}
     if stats_file:
         stats = load_statistics_from_file(stats_file)
 
     correct_matches = 0
-    for i, target_folder in enumerate(tqdm(generated_folders)):
+    for i, target_folder in enumerate(tqdm(test_folders)):
         if stats_file:
             target_mean, target_std, target_fid = stats[target_folder]
         else:
@@ -60,27 +66,28 @@ def compute_accuracy(generated_folders, modelArch, stats_file=None, alpha=0):
             target_fid = None
 
         distances = []
-        for j, folder in enumerate(generated_folders):
-            if i != j:  # Skip the target folder
-                if stats_file:
-                    gen_mean, gen_std, gen_fid= stats[folder]
-                else:
-                    generated_images = load_and_preprocess_images(folder)
-                    gen_mean, gen_std = calculate_statistics(generated_images)
-                    gen_fid = None
-                distance = calculate_distance(gen_mean, gen_std, gen_fid, target_mean, target_std, target_fid)
-                cos_sim = cosine_similarity(gen_mean, target_mean) + cosine_similarity(gen_std, target_std)
-                combined = combined_metric(cos_sim, distance, alpha)
-                distances.append((combined, modelArch[j]))
+        for j, folder in enumerate(train_folders):
+            if stats_file:
+                gen_mean, gen_std, gen_fid= stats[folder]
+            else:
+                generated_images = load_and_preprocess_images(folder)
+                gen_mean, gen_std = calculate_statistics(generated_images)
+                gen_fid = None
+            distance = calculate_distance(gen_mean, gen_std, gen_fid, target_mean, target_std, target_fid)
+            cos_sim = cosine_similarity(gen_mean, target_mean) + cosine_similarity(gen_std, target_std)
+            combined = combined_metric(cos_sim, distance, alpha)
+            distances.append((combined, getArch(folder)))
 
         # Sort distances, but keep model arch info
         distances.sort(reverse=True)
+        print(f"Target folder: {target_folder}")
+        print(f"Closest matches: {distances[:3]}")
 
         # Check if the closest match has the same model architecture
-        if distances and distances[0][1] == modelArch[i]:
+        if distances and distances[0][1] == getArch(target_folder):
             correct_matches += 1
 
-    total_targets = len(modelArch)
+    total_targets = len(test_folders)
     accuracy = correct_matches / total_targets
     print(f"Accuracy: {accuracy}")
 
@@ -110,6 +117,7 @@ def load_statistics_from_file(file_path):
     with np.load(file_path, allow_pickle=True) as data:
         stats = data['stats'].item()  # Assume stats are stored in a dictionary format
     fid_scores = load_fid_scores("/home/jackhe/LayerChoice/fid_scores/fid_score.txt")
+    # fid_scores = load_fid_scores("/home/jackhe/LayerChoice/fid_scores/fid_score_small.txt")
     for folder in stats.keys():
         # Update the stats dictionary with the FID score if available
         if folder in fid_scores:
@@ -144,13 +152,33 @@ if __name__ == "__main__":
                         '/home/jackhe/LayerChoice/samples/CIFAR10-SNGAN-train-2022_03_06_02_21_44/fake',
                         '/home/jackhe/LayerChoice/samples/CIFAR10-SNGAN-train-2022_03_06_02_23_48/fake',
                         '/home/jackhe/LayerChoice/samples/CIFAR10-SNGAN-train-2022_03_06_02_24_46/fake']
-
-    modelArch = ['ddim','ddim','ddim',
-                'ddpm','ddpm','ddpm',
-                'pndm','pndm','pndm',
-                'BigGAN', 'BigGAN', 'BigGAN',
-                'ContraGAN', 'ContraGAN', 'ContraGAN',
-                'SNGAN', 'SNGAN', 'SNGAN']
+    
+    train_folders = ['/home/jackhe/LayerChoice/ddpm_images/ddim2',
+                    '/home/jackhe/LayerChoice/ddpm_images/ddim3',
+                    '/home/jackhe/LayerChoice/ddpm_images/ddpm1',
+                    '/home/jackhe/LayerChoice/ddpm_images/ddpm3',
+                    '/home/jackhe/LayerChoice/ddpm_images/pndm2',
+                    '/home/jackhe/LayerChoice/ddpm_images/pndm3',
+                    '/home/jackhe/LayerChoice/samples/CIFAR10-BigGAN-Deep-train-2022_02_02_21_50_43/fake',
+                    '/home/jackhe/LayerChoice/samples/CIFAR10-BigGAN-Deep-train-2022_02_14_18_23_41/fake',
+                    '/home/jackhe/LayerChoice/samples/CIFAR10-ContraGAN-train-2022_01_13_01_24_34/fake',
+                    '/home/jackhe/LayerChoice/samples/CIFAR10-ContraGAN-train-2022_01_13_01_25_00/fake',
+                    '/home/jackhe/LayerChoice/samples/CIFAR10-SNGAN-train-2022_03_06_02_21_44/fake',
+                    '/home/jackhe/LayerChoice/samples/CIFAR10-SNGAN-train-2022_03_06_02_24_46/fake']
+    
+    # train_folders = ['/home/jackhe/LayerChoice/ddpm_images/ddim2',
+    #             '/home/jackhe/LayerChoice/ddpm_images/ddpm1',
+    #             '/home/jackhe/LayerChoice/ddpm_images/pndm2',
+    #             '/home/jackhe/LayerChoice/samples/CIFAR10-BigGAN-Deep-train-2022_02_02_21_50_43/fake',
+    #             '/home/jackhe/LayerChoice/samples/CIFAR10-ContraGAN-train-2022_01_13_01_24_34/fake',
+    #             '/home/jackhe/LayerChoice/samples/CIFAR10-SNGAN-train-2022_03_06_02_21_44/fake',]
+    
+    test_folders = ['/home/jackhe/LayerChoice/samples/CIFAR10-ContraGAN-train-2022_01_13_11_17_17/fake',
+                    '/home/jackhe/LayerChoice/samples/CIFAR10-BigGAN-Deep-train-2022_02_02_21_48_16/fake',
+                    '/home/jackhe/LayerChoice/samples/CIFAR10-SNGAN-train-2022_03_06_02_23_48/fake',
+                    '/home/jackhe/LayerChoice/ddpm_images/ddpm2',
+                    '/home/jackhe/LayerChoice/ddpm_images/pndm1',
+                    '/home/jackhe/LayerChoice/ddpm_images/ddim1']
 
     target_folder = '/home/jackhe/LayerChoice/ddpm_images/ddpm2'
     
@@ -159,9 +187,12 @@ if __name__ == "__main__":
     stats_file = args.load
 
     if args.accuracy:
-        compute_accuracy(generated_folders, modelArch, stats_file=stats_file)
+        compute_accuracy(train_folders, test_folders, stats_file=stats_file)
     elif args.save:
-        save_statistics_to_file(generated_folders, args.save)
+        import time
+        start_time = time.time()
+        save_statistics_to_file(train_folders, args.save)
+        print(f"Time taken: {time.time() - start_time:.2f} seconds" )
     else:
         stats = {}
         if stats_file:

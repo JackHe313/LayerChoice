@@ -4,14 +4,20 @@ import matplotlib.pyplot as plt
 
 def parse_data(file_path):
     """Parse the model scores from a file."""
-    scores = {}
+    train_scores = {}
+    test_scores = {}
     with open(file_path, 'r') as file:
         for line in file:
             model_name = line.split(' [')[0]
             scores_str = line.split(' [')[1].rstrip().rstrip(']\n')
             scores_list = [float(score) if score != 'nan' else None for score in scores_str.split(', ')]
-            scores[model_name] = scores_list
-    return scores
+            if '_train' in model_name:
+                if model_name not in train_scores:
+                    train_scores[model_name] = []
+                train_scores[model_name].append(scores_list)
+            elif '_test' in model_name:
+                test_scores[model_name] = scores_list
+    return train_scores, test_scores
 
 def assign_color(model_name, color_map):
     """Assign a color to each model for plotting."""
@@ -22,10 +28,10 @@ def assign_color(model_name, color_map):
 
 def plot_scores(file_path):
     """Plot the model scores."""
-    model_scores = parse_data(file_path)
+    train_scores, test_scores = parse_data(file_path)
     plt.figure(figsize=(12, 6))
     color_map = {}
-    for model, scores in model_scores.items():
+    for model, scores in {**train_scores, **test_scores}.items():
         color = assign_color(model, color_map)
         plt.plot(scores, label=model, color=color)
     plt.xlabel('Score Index')
@@ -46,7 +52,7 @@ def l2_norm(A, B):
     """Compute the L2 norm (Euclidean distance) between two vectors."""
     return np.linalg.norm(A - B)
 
-def combined_metric(cosine_sim, l2_dist, alpha=0.5):
+def combined_metric(cosine_sim, l2_dist, alpha):
     """
     Combine cosine similarity and L2 distance into a single metric.
     Alpha determines the weight of the cosine similarity relative to the L2 distance.
@@ -58,12 +64,11 @@ def combined_metric(cosine_sim, l2_dist, alpha=0.5):
     return alpha * cosine_sim + (1 - alpha) * l2_similarity
 
 
-def find_closest_score_name(file_path, new_score, alpha=0.5):
+def find_closest_score_name(train_scores, new_score, alpha):
     """Find the closest score name to a given score."""
-    scores = parse_data(file_path)
     best_metric = -np.inf
     closest_score_name = None
-    for model_name, model_scores in scores.items():
+    for model_name, model_scores in train_scores.items():
         if None in model_scores:
             model_scores = [0 if score is None else score for score in model_scores]
         if len(model_scores) != len(new_score):
@@ -76,36 +81,34 @@ def find_closest_score_name(file_path, new_score, alpha=0.5):
             closest_score_name = model_name
     return closest_score_name
 
-def compute_accuracy(file_path, alpha=1):
-    """Compute the overall accuracy by setting each item as a target in turns."""
-    scores = parse_data(file_path)
+def compute_accuracy(file_path, alpha=0.5):
+    """Compute the overall accuracy by setting each test item as a target and finding the best match in train data."""
+    train_scores, test_scores = parse_data(file_path)
     correct_identifications = 0
-    for target_name, target_scores in scores.items():
+    for test_name, test_scores_list in test_scores.items():
         best_metric = -np.inf
         closest_score_name = None
-        for model_name, model_scores in scores.items():
-            if model_name == target_name or None in model_scores:  # Skip self comparison and invalid scores
-                continue
-            model_scores = [0 if score is None else score for score in model_scores]
-            target_scores_clean = [0 if score is None else score for score in target_scores]
-            similarity = cosine_similarity(np.array(model_scores), np.array(target_scores_clean))
-            l2_dist = l2_norm(np.array(model_scores), np.array(target_scores_clean))
-            combined = combined_metric(similarity, l2_dist, alpha)
-            if combined > best_metric:
-                best_metric = combined
-                closest_score_name = model_name
-        if target_name.split('_')[0] == closest_score_name.split('_')[0]:
+        for train_name, train_scores_list in train_scores.items():
+            for score_list in train_scores_list:
+                train_scores_list = [0 if score is None else score for score in score_list][1:]
+                test_scores_clean = [0 if score is None else score for score in test_scores_list][1:]
+                similarity = cosine_similarity(np.array(train_scores_list), np.array(test_scores_clean))
+                l2_dist = l2_norm(np.array(train_scores_list), np.array(test_scores_clean))
+                combined = combined_metric(similarity, l2_dist, alpha)
+                if combined > best_metric:
+                    best_metric = combined
+                    closest_score_name = train_name
+        if test_name.split('_')[0] == closest_score_name.split('_')[0]:
             correct_identifications += 1
         else:
-            print(target_name, closest_score_name)
-    accuracy = correct_identifications / len(scores)
+            print(f"Test: {test_name}, Closest Train: {closest_score_name}")
+    accuracy = correct_identifications / len(test_scores)
     return accuracy
 
 def main():
     parser = argparse.ArgumentParser(description="Process model scores.")
     parser.add_argument('file_path', type=str, help="Path to the score data file.")
     parser.add_argument('--plot', '-p', action='store_true', help="Plot the model scores.")
-    parser.add_argument('--find_closest', '-f', action='store_true', help="Find the closest score name to a hardcoded list of scores.")
     parser.add_argument('--accuracy', '-a', action='store_true', help="Compute the overall accuracy.")
     args = parser.parse_args()
 
@@ -115,11 +118,6 @@ def main():
     elif args.accuracy:
         accuracy = compute_accuracy(args.file_path)
         print(f"Overall accuracy: {accuracy}")
-    elif args.find_closest is not None:
-        # Hardcoded scores - modify this list as needed
-        hardcoded_scores =  [-0.9282533426373575, 0.2091691723364699, 1.2879342619260798, 2.000266767399825, 2.0926155840977323, 2.0908728386222553, 1.8870787713504376, 2.3681898618924184, 2.583302407776081, 2.4658132270635016, 3.476056241779327, 3.443036285310274]
-        closest_score_name = find_closest_score_name(args.file_path, hardcoded_scores)
-        print(f"The closest score name is: {closest_score_name}")
 
 if __name__ == "__main__":
     main()

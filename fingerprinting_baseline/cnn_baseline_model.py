@@ -4,6 +4,7 @@ import torch.optim as optim
 import torch.nn.functional as F
 from torchvision import datasets, transforms
 from torch.utils.data import DataLoader, random_split
+from collections import defaultdict, Counter
 import os
 from tqdm import tqdm
 
@@ -37,7 +38,8 @@ transform = transforms.Compose([
 ])
 
 print("Model, loss function, and optimizer defined.")
-base_dir = '/home/jackhe/LayerChoice/fingerprinting_dataset'
+base_dir = '/home/jackhe/LayerChoice/fingerprinting_dataset_small'
+num_epochs = 50
 train_dir = os.path.join(base_dir, 'train')
 test_dir = os.path.join(base_dir, 'test')
 
@@ -59,7 +61,7 @@ modelArch = [
 ]
 
 # Check if CUDA is available
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:6" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}")
 
 # Instantiate the model, loss function, and optimizer
@@ -70,7 +72,6 @@ optimizer = optim.Adam(model.parameters(), lr=0.001)
 
 # Training the model
 print("Training the model...")
-num_epochs = 30
 model.train()
 
 for epoch in range(num_epochs):
@@ -99,20 +100,32 @@ for epoch in range(num_epochs):
 
 print("Training complete.")
 
-# Evaluate the model
+# Evaluate the model with majority vote
 model.eval()
-correct = 0
-total = 0
+label_predictions = defaultdict(list)
 
 with torch.no_grad():
     for inputs, labels in test_loader:
         inputs, labels = inputs.to(device), labels.to(device)
         outputs = model(inputs)
         _, predicted = torch.max(outputs, 1)
-        total += labels.size(0)
-        correct += (predicted == labels).sum().item()
+        
 
-accuracy = correct / total
-print(f"Test Accuracy: {accuracy * 100:.2f}%")
+        for label, prediction in zip(labels, predicted):
+            label_predictions[label.item()].append(prediction.item())
+
+# Perform a majority vote for each label
+majority_vote_correct = 0
+for label, predictions in label_predictions.items():
+    if predictions:
+        # Perform majority vote
+        most_common_prediction, count = Counter(predictions).most_common(1)[0]
+        # Check if the most common prediction is correct
+        if most_common_prediction == label:
+            majority_vote_correct += 1
+
+# Calculate accuracy based on majority votes
+majority_vote_accuracy = majority_vote_correct / len(label_predictions)
+print(f"Majority Vote Accuracy: {majority_vote_accuracy * 100:.2f}%")
 
 

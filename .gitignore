@@ -16,3 +16,5 @@ samples/
 ddpm_images/
 fid_scores/
 fingerprinting_dataset/
+fingerprinting_dataset_full/
+fingerprinting_dataset_small/
